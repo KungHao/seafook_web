@@ -1,6 +1,3 @@
-bson
-base64
-bcrypt
 Flask
 gunicorn
 datetime

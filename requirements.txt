@@ -1,2 +1,11 @@
+os
+json
+bson
+base64
+bcrypt
 Flask
 gunicorn
+datetime
+pymongo
+pymongo[srv]
+flask_mongoengine

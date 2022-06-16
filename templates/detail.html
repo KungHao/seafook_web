@@ -1,0 +1,13 @@
+{% for row in data %}
+<table width='100%'>
+    <tr>
+        <td width="300"><img src="data:image/png;base64,{{img}}" alt="{{row.name}}">
+        <td style="padding:20px;">
+            <p>Name : {{row.name}}</p>
+            <p>Price : ${{row.price}}</p>
+            <p>Category : {{row.category}}</p>
+            <p>Description : {{row.description}}</p>
+        </td>
+    </tr>
+</table>
+{% endfor %}

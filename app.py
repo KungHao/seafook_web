@@ -3,29 +3,68 @@ import os
 import bcrypt
 import pymongo
 import json
+from models.models import *
 from bson.json_util import dumps
 from bson.objectid import ObjectId
 from utils.utils import decodeImg, itemJson, encodeImg, encode_imglist, check_password
 from flask import Flask, render_template, session, url_for, request, Response, redirect, url_for, jsonify
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 app = Flask(__name__)
 DB_URI = "mongodb+srv://jamesMongo:0Az82U28n2WyxNl5@clusterj.z7twq.mongodb.net/?retryWrites=true&w=majority"
 client = pymongo.MongoClient(DB_URI)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = DB_URI
 app.config['SECRET_KEY'] = os.urandom(23)
 mydb = client['e_seafood']
 prod_col = mydb['products']
 user_col = mydb['users']
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.session_protection = "strong"
+login_manager.login_view = 'login'
+
+# current_user 會來這邊找資料
+@login_manager.user_loader
+def user_loader(user_id):
+    find_user = user_col.find_one({'_id' : ObjectId(user_id)})
+    if find_user:
+        user = User(id=find_user['_id'], name=find_user['name'], pwd=find_user['password'])
+        return user
+    return 
+
+@login_manager.request_loader
+def request_loader(request):
+    find_user = user_col.find_one({'name' : request.form.get('username')})
+    if find_user:
+        if check_password(input_pwd=request.form['password'], db_pwd=find_user['password']):
+            user = User(id=find_user['_id'], name=find_user['name'], pwd=find_user['password'])
+            return user
+    return
+
 @app.route("/", methods=['GET', 'POST'])
 def index():
-    if 'username' in session:
-        print(session['username'])
     if request.method == 'GET':
-        mycol = mydb['products']
-        mydata = mycol.find()
-        categories = mydata.distinct('category')
+        data = prod_col.find()
+        categories = data.distinct('category')
         # 處理圖片
-        mydata = encode_imglist(mydata)
-    return render_template('index.html', data=mydata, categories=categories)
+        data = encode_imglist(data)
+    if request.method == 'POST':
+        data = prod_col.find({'category': request.form['category']})
+        categories = data.distinct('category')
+        # 處理圖片
+        data = encode_imglist(data)
+    return render_template('index.html', current_user=current_user, data=data, categories=categories)
+
+@app.route("/category", methods=['GET', 'POST'])
+def category():
+    if request.method == 'POST':
+        data = prod_col.find({'category': request.form['category']})
+        categories = data.distinct('category')
+        # 處理圖片
+        data = encode_imglist(data)
+    return render_template('index.html', current_user=current_user, data=data, categories=categories)
 
 @app.route("/detail", methods=['GET', 'POST'])
 def detail():
@@ -72,14 +111,31 @@ def upload():
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     if request.method == 'POST':
-        login_user = user_col.find_one({'name' : request.form['username']})
-        if login_user:
-            if check_password(input_pwd=request.form['pass'], db_pwd=login_user['password']):
-                session['username'] = request.form['username']
-                return redirect(url_for('index'))
+        user = request_loader(request)
+        if user:
+            login_user(user, remember=True)
+
+            return redirect(url_for('index'))
+        # find_user = user_col.find_one({'name' : request.form['username']})
+        # if find_user:
+        #     print('user:', user_loader(find_user['_id']).get_id)
+        #     if check_password(input_pwd=request.form['pass'], db_pwd=find_user['password']):
+        #         # session['username'] = request.form['username']
+        #         user = User()
+        #         user.id = find_user['_id']
+        #         login_user(user)
+        #         return redirect(url_for('index'))
 
         return '輸入帳號密碼錯誤'
-    return render_template('login.html')
+    else:
+        return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    # session.pop('username', None)
+    logout_user()
+    return redirect(url_for('index'))
 
 @app.route('/register', methods=['POST', 'GET'])
 def register():
@@ -97,6 +153,7 @@ def register():
     return render_template('register.html')
 
 @app.route('/cart')
+@login_required
 def cart():
     return render_template('cart.html')
 # @app.route('/submit', methods=['POST', 'GET'])

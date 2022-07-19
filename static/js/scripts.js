@@ -62,6 +62,24 @@ $(document).ready(function () {
         }
     });
 
+    $('.dropdown-menu li a').click(function () {
+        category = $(this).text()
+        console.log(category)
+        $('#navbarDropdown').text(category)
+        $.ajax({
+            url: '/category',
+            type: 'POST',
+            data: { category },
+            success: function (data) {
+                console.log('Category: ', data);
+                $("html").html(data);
+            },
+            error: function (e) {
+                console.log(e);
+            }
+        });
+    });
+
     // $('#cart_btn').click(function () {
     //     $.ajax({
     //         url: '/cart',
